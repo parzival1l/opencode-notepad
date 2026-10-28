@@ -14,14 +14,16 @@
   align-items: center;
   gap: 4px;
 }
-.notepad-path {
+.notepad-toolbar > :not(.notepad-add) {
+  flex-shrink: 0;
+}
+.notepad-add {
   flex: 1;
   min-width: 0;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-  font-size: 12px;
-  opacity: 0.6;
+  margin-right: 2px;
+}
+.notepad-add > * {
+  width: 100%;
 }
 .notepad-tasks {
   list-style: none;

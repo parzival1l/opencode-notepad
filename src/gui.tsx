@@ -332,9 +332,15 @@ export default Plugin.define({
       return (
         <div class="notepad">
           <div class="notepad-toolbar">
-            <span class="notepad-path" title={path()}>
-              {ctx.t("title")}
-            </span>
+            <div class="notepad-add">
+              <ui.TextInput
+                label={ctx.t("add.label")}
+                placeholder={ctx.t("add.placeholder")}
+                value={draft()}
+                onInput={setDraft}
+                onSubmit={add}
+              />
+            </div>
             <ui.Tooltip value={ctx.t("openPreview")}>
               <ui.IconButton
                 icon="square-arrow-top-right"
@@ -357,16 +363,6 @@ export default Plugin.define({
                 },
                 { label: ctx.t("copyPath"), icon: "copy", onSelect: () => void ctx.system.copy(path()) },
               ]}
-            />
-          </div>
-
-          <div class="notepad-add">
-            <ui.TextInput
-              label={ctx.t("add.label")}
-              placeholder={ctx.t("add.placeholder")}
-              value={draft()}
-              onInput={setDraft}
-              onSubmit={add}
             />
           </div>
 
