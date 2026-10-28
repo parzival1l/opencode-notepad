@@ -1,8 +1,14 @@
 {
   "name": "opencode-notepad",
-  "version": "0.1.0",
+  "version": "0.0.1",
   "description": "OpenCode Desktop side-panel notepad, one per chat: Markdown notes with a checklist the coding agent can add to.",
-  "keywords": ["opencode", "opencode-plugin", "notepad", "checklist", "markdown"],
+  "keywords": [
+    "opencode",
+    "opencode-plugin",
+    "notepad",
+    "checklist",
+    "markdown"
+  ],
   "type": "module",
   "license": "MIT",
   "author": "parzival1l",
@@ -17,7 +23,10 @@
     "./rpc": "./src/rpc.ts",
     "./gui-experimental": "./dist/gui-experimental.cjs"
   },
-  "files": ["src", "dist"],
+  "files": [
+    "src",
+    "dist"
+  ],
   "scripts": {
     "build": "vite build",
     "dev": "vite build --watch",
