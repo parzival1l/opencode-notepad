@@ -1,4 +1,4 @@
-import { createEffect, createSignal, For, onCleanup, Show } from "solid-js"
+import { createEffect, createSignal, Index, onCleanup, Show } from "solid-js"
 import { createStore } from "solid-js/store"
 import {
   Command,
@@ -15,6 +15,7 @@ import {
 import * as Note from "./note"
 import { Notepad, type State } from "./rpc"
 import { readSelection, SelectionBar, type SelectionAction } from "./selection"
+import { TaskRow } from "./task-row"
 import css from "./gui.css?inline"
 
 export default Plugin.define({
@@ -25,6 +26,7 @@ export default Plugin.define({
       "add.label": "Add a checklist item",
       "add.placeholder": "Add an item and press Enter",
       remove: "Remove item",
+      editItem: "Click to edit",
       clearDone: "Clear done",
       notes: "Notes",
       "notes.empty": "No notes yet. Select Edit to write Markdown.",
@@ -367,35 +369,36 @@ export default Plugin.define({
           </div>
 
           <ul class="notepad-tasks">
-            <For each={note().tasks}>
+            {/* Index keeps each row mounted across updates, so an edit in progress survives a new item arriving. */}
+            <Index each={note().tasks}>
               {(task, i) => (
-                <li class="notepad-task" classList={{ "is-done": task.checked }}>
-                  <label>
-                    <input
-                      type="checkbox"
-                      checked={task.checked}
-                      onChange={(event) => {
-                        const checked = event.currentTarget.checked
+                <TaskRow
+                  task={task()}
+                  editLabel={ctx.t("editItem")}
+                  onCheck={(checked) => {
+                    const sessionID = id()
+                    call(sessionID, (pad) => pad.check({ sessionID, index: i, checked }))
+                  }}
+                  onRename={(text) => {
+                    const sessionID = id()
+                    call(sessionID, (pad) => pad.rename({ sessionID, index: i, text }))
+                  }}
+                  remove={
+                    <ui.IconButton
+                      icon="xmark-small"
+                      label={ctx.t("remove")}
+                      variant="ghost-muted"
+                      size="small"
+                      class="notepad-remove"
+                      onClick={() => {
                         const sessionID = id()
-                        call(sessionID, (pad) => pad.check({ sessionID, index: i(), checked }))
+                        call(sessionID, (pad) => pad.remove({ sessionID, index: i }))
                       }}
                     />
-                    <span>{task.text}</span>
-                  </label>
-                  <ui.IconButton
-                    icon="xmark-small"
-                    label={ctx.t("remove")}
-                    variant="ghost-muted"
-                    size="small"
-                    class="notepad-remove"
-                    onClick={() => {
-                      const sessionID = id()
-                      call(sessionID, (pad) => pad.remove({ sessionID, index: i() }))
-                    }}
-                  />
-                </li>
+                  }
+                />
               )}
-            </For>
+            </Index>
           </ul>
           <Show when={note().tasks.some((task) => task.checked)}>
             <div class="notepad-clear">

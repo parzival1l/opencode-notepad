@@ -54,6 +54,15 @@ export function setChecked(doc: string, index: number, checked: boolean): string
   return compose({ ...note, tasks: note.tasks.map((task, i) => (i === index ? { ...task, checked } : task)) })
 }
 
+// Renames one task. Blank text leaves the task unchanged; remove it with removeTask instead.
+export function setText(doc: string, index: number, text: string): string {
+  const note = parse(doc)
+  if (!note.tasks[index]) throw new RangeError(`No task at index ${index}`)
+  const next = clean(text)
+  if (!next) return compose(note)
+  return compose({ ...note, tasks: note.tasks.map((task, i) => (i === index ? { ...task, text: next } : task)) })
+}
+
 export function removeTask(doc: string, index: number): string {
   const note = parse(doc)
   if (!note.tasks[index]) throw new RangeError(`No task at index ${index}`)

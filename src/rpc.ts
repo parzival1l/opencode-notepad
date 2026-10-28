@@ -34,6 +34,7 @@ export const Notepad = Rpc.define({
     read: { input: input({}), output: state },
     add: { input: input({ items: { type: "array", items: { type: "string" } } }), output: state },
     check: { input: input({ index, checked: { type: "boolean" } }), output: state },
+    rename: { input: input({ index, text: { type: "string" } }), output: state },
     remove: { input: input({ index }), output: state },
     clearDone: { input: input({}), output: state },
     appendNote: { input: input({ markdown: { type: "string" } }), output: state },

@@ -52,6 +52,10 @@ export default Plugin.define({
         const { sessionID, index, checked } = input as { sessionID: string; index: number; checked: boolean }
         return edit(sessionID, (doc) => Note.setChecked(doc, index, checked))
       },
+      rename: async (input) => {
+        const { sessionID, index, text } = input as { sessionID: string; index: number; text: string }
+        return edit(sessionID, (doc) => Note.setText(doc, index, text))
+      },
       remove: async (input) => {
         const { sessionID, index } = input as { sessionID: string; index: number }
         return edit(sessionID, (doc) => Note.removeTask(doc, index))

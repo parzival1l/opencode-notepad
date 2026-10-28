@@ -52,6 +52,17 @@ describe("edits by index", () => {
     expect(() => Note.setChecked(doc, 5, true)).toThrow(RangeError)
   })
 
+  test("setText renames only the indexed task and keeps its state", () => {
+    expect(Note.setText(doc, 1, "  ship the PR today ")).toBe(
+      "- [ ] buy milk\n- [x] ship the PR today\n\n## Notes\n\nSome *markdown*.\n",
+    )
+  })
+
+  test("setText ignores blank text and rejects a missing index", () => {
+    expect(Note.setText(doc, 0, "   ")).toBe(doc)
+    expect(() => Note.setText(doc, 9, "x")).toThrow(RangeError)
+  })
+
   test("removeTask drops the line", () => {
     expect(Note.removeTask(doc, 0)).toBe("- [x] ship PR\n\n## Notes\n\nSome *markdown*.\n")
   })

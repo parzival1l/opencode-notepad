@@ -111,3 +111,51 @@ test("the bar hides after an action", async () => {
   await press("Add to list")
   expect(await page.$(".notepad-selection")).toBeNull()
 })
+
+// The checklist rows: only the checkbox ticks; the text opens an editor.
+async function clickTaskText(n: number) {
+  const span = (await page.$$(".notepad-task-text"))[n]!
+  await span.click()
+}
+
+test("clicking an item's text opens the editor and does not tick it", async () => {
+  await clickTaskText(0)
+  await page.waitForSelector(".notepad-task-edit")
+  const checked = await page.$eval(".notepad-task input[type=checkbox]", (el) => (el as HTMLInputElement).checked)
+  expect(checked).toBe(false)
+  expect(await sent()).toEqual([])
+})
+
+test("Enter saves the new text once", async () => {
+  await clickTaskText(0)
+  await page.waitForSelector(".notepad-task-edit")
+  await page.keyboard.type("Cancel the trial")
+  await page.keyboard.press("Enter")
+  expect(await sent()).toEqual(["rename:0:Cancel the trial"])
+  expect(await page.$(".notepad-task-edit")).toBeNull()
+  expect(await page.$eval(".notepad-task-text", (el) => el.textContent)).toBe("Cancel the trial")
+})
+
+test("Escape cancels the edit", async () => {
+  await clickTaskText(1)
+  await page.waitForSelector(".notepad-task-edit")
+  await page.keyboard.type("something else")
+  await page.keyboard.press("Escape")
+  expect(await sent()).toEqual([])
+  expect((await page.$$eval(".notepad-task-text", (els) => els.map((el) => el.textContent)))[1]).toBe("Download")
+})
+
+test("clicking away saves the edit", async () => {
+  await clickTaskText(1)
+  await page.waitForSelector(".notepad-task-edit")
+  await page.keyboard.type("Download the report")
+  await page.mouse.click(5, 5)
+  expect(await sent()).toEqual(["rename:1:Download the report"])
+})
+
+test("the checkbox ticks and unticks the item", async () => {
+  const box = (await page.$$(".notepad-task input[type=checkbox]"))[1]!
+  await box.click()
+  await box.click()
+  expect(await sent()).toEqual(["check:1:true", "check:1:false"])
+})
