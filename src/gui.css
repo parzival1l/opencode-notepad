@@ -1,0 +1,111 @@
+/* Task-list rules adapted from pluk-inc/markdown-preview (MIT): done items are muted, not struck
+   through, so their text stays readable beside the checkbox. */
+.notepad {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  height: 100%;
+  overflow-y: auto;
+  padding: 10px 12px 16px;
+  box-sizing: border-box;
+}
+.notepad-toolbar {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+.notepad-path {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 12px;
+  opacity: 0.6;
+}
+.notepad-tasks {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+.notepad-task {
+  display: flex;
+  align-items: flex-start;
+  gap: 4px;
+  border-radius: 6px;
+  padding: 2px 2px 2px 4px;
+}
+.notepad-task:hover {
+  background: color-mix(in srgb, currentColor 6%, transparent);
+}
+.notepad-task label {
+  display: flex;
+  flex: 1;
+  min-width: 0;
+  align-items: flex-start;
+  gap: 8px;
+  padding: 3px 0;
+  cursor: pointer;
+  line-height: 1.4;
+  overflow-wrap: anywhere;
+}
+.notepad-task input[type="checkbox"] {
+  flex-shrink: 0;
+  margin: 2px 0 0;
+  width: 14px;
+  height: 14px;
+  accent-color: var(--text-interactive-base, currentColor);
+  cursor: pointer;
+}
+.notepad-task.is-done label span {
+  opacity: 0.5;
+}
+.notepad-remove {
+  flex-shrink: 0;
+  opacity: 0;
+}
+.notepad-task:hover .notepad-remove,
+.notepad-remove:focus-visible {
+  opacity: 1;
+}
+.notepad-clear {
+  display: flex;
+  justify-content: flex-end;
+}
+.notepad-notes-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-top: 4px;
+  padding-top: 8px;
+  border-top: 1px solid color-mix(in srgb, currentColor 12%, transparent);
+  font-size: 12px;
+  font-weight: 600;
+  opacity: 0.8;
+}
+.notepad-empty {
+  margin: 0;
+  font-size: 13px;
+  opacity: 0.5;
+}
+.notepad-body {
+  min-height: 2em;
+}
+.notepad-editor {
+  flex: 1;
+  min-height: 240px;
+  resize: vertical;
+  padding: 8px;
+  border-radius: 6px;
+  border: 1px solid color-mix(in srgb, currentColor 18%, transparent);
+  background: transparent;
+  color: inherit;
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 12.5px;
+  line-height: 1.5;
+  tab-size: 2;
+}
+.notepad-editor:focus {
+  outline: none;
+  border-color: color-mix(in srgb, currentColor 35%, transparent);
+}
