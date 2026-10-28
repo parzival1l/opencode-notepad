@@ -4,16 +4,24 @@ import { Portal } from "solid-js/web"
 // Places a selection is editable or belongs to the notepad itself; the bar stays hidden there.
 const IGNORE = "input, textarea, select, [contenteditable=''], [contenteditable='true'], .notepad, .notepad-selection"
 
+/**
+ * Dispatched, cancelable and bubbling, on the selected text before a quote goes to the main chat. A view with its
+ * own composer (opencode-side-chat) cancels it and takes the quote itself. `detail` is `{ text }`.
+ */
+export const QUOTE_EVENT = "opencode:quote"
+
 export interface Picked {
   readonly text: string
   readonly top: number
   readonly left: number
+  /** The element the selection starts in. */
+  readonly from: Element | undefined
 }
 
 export interface SelectionAction {
   readonly id: string
   readonly label: string
-  run(text: string): void
+  run(text: string, from: Element | undefined): void
 }
 
 // The window's current text selection, when it is worth acting on.
@@ -27,7 +35,7 @@ export function readSelection(): Picked | undefined {
   if (element?.closest(IGNORE)) return undefined
   const rect = selection.getRangeAt(0).getBoundingClientRect()
   if (rect.width === 0 && rect.height === 0) return undefined
-  return { text, top: rect.top, left: rect.left + rect.width / 2 }
+  return { text, top: rect.top, left: rect.left + rect.width / 2, from: element ?? undefined }
 }
 
 export function SelectionBar(props: { readonly actions: readonly SelectionAction[] }) {
@@ -68,7 +76,7 @@ export function SelectionBar(props: { readonly actions: readonly SelectionAction
     if (!current) return
     window.getSelection()?.removeAllRanges()
     hide()
-    action.run(current.text)
+    action.run(current.text, current.from)
   }
 
   return (

@@ -14,7 +14,7 @@ import {
 } from "@opencode/plugin/gui"
 import * as Note from "./note"
 import { Notepad, type State } from "./rpc"
-import { readSelection, SelectionBar, type SelectionAction } from "./selection"
+import { QUOTE_EVENT, readSelection, SelectionBar, type SelectionAction } from "./selection"
 import { TaskRow } from "./task-row"
 import css from "./gui.css?inline"
 
@@ -139,7 +139,10 @@ export default Plugin.define({
     }
 
     // Attaches the selection to the next prompt as a quote and opens its comment box: one step.
-    function selectionToQuote(text: string) {
+    function selectionToQuote(text: string, from: Element | undefined) {
+      // Another chat on screen, such as a side chat, may take a quote of its own text by cancelling this event.
+      const claim = new CustomEvent(QUOTE_EVENT, { bubbles: true, cancelable: true, detail: { text: text.trim() } })
+      if (from && !from.dispatchEvent(claim)) return
       const composer = ctx.screen.current()?.composer
       if (!composer?.quotable()) {
         ctx.toast.show({ title: ctx.t("quote.unavailable") })
