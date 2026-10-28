@@ -72,6 +72,13 @@ OpenCode installs the package and reloads plugins when the config changes.
 - `bun run test` covers the note format and the file store. `bun run typecheck` runs `tsc`.
 - `bun run test:e2e` drives the highlight bar in Chrome with real mouse presses, including while the page streams and scrolls. Set `CHROME_PATH` if Chrome is not in `/Applications`.
 
+## Release
+
+1. Bump `version` in `package.json` and commit it as `Release <version>`.
+2. Push to `main`.
+
+The `Release` workflow runs the checks on every push. On `main`, it publishes the version to npm if npm does not have it yet, then creates a GitHub release `v<version>`. It publishes through npm trusted publishing, so the repo holds no npm token.
+
 ## Markdown Preview
 
 The toolbar button opens the note in [Markdown Preview](https://github.com/pluk-inc/markdown-preview) through its `md-preview://file/<path>` URL scheme. There you can read it with an outline, or click its checkboxes. The panel picks up those edits. The checklist styles adapt Markdown Preview's task-list rules (MIT): done items are muted, not struck through.

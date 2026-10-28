@@ -22,7 +22,8 @@ beforeAll(async () => {
       return (await file.exists()) ? new Response(file) : new Response("Not found", { status: 404 })
     },
   })
-  browser = await puppeteer.launch({ executablePath: CHROME, headless: true })
+  // GitHub's Ubuntu runners block Chrome's sandbox.
+  browser = await puppeteer.launch({ executablePath: CHROME, headless: true, args: process.env.CI ? ["--no-sandbox"] : [] })
 })
 
 afterAll(async () => {
