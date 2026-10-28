@@ -6,11 +6,13 @@ import {
   MenuItem,
   Panel,
   Plugin,
+  Slot,
   Style,
   type PanelTab,
 } from "@opencode/plugin/gui"
 import * as Note from "./note"
 import { Notepad, type State } from "./rpc"
+import { readSelection, SelectionBar } from "./selection"
 import css from "./gui.css?inline"
 
 export default Plugin.define({
@@ -33,6 +35,12 @@ export default Plugin.define({
       "pill.title": "Notepad checklist",
       "pill.open": "Open Notepad",
       "error": "Notepad: {{message}}",
+      "selection.list": "Add to list",
+      "selection.notes": "Add to notes",
+      "command.selectionList": "Add selection to Notepad list",
+      "command.selectionNotes": "Add selection to Notepad notes",
+      "added.list": "Added {{count}} item(s) to the Notepad list",
+      "added.notes": "Added the selection to Notepad notes",
     },
   },
   setup(ctx) {
@@ -61,6 +69,28 @@ export default Plugin.define({
 
     function call(run: (pad: ReturnType<typeof ctx.client.rpc<typeof Notepad>>) => Promise<unknown>) {
       run(ctx.client.rpc(Notepad)).then((value) => setState(value as State), fail)
+    }
+
+    function selectionToList(text: string) {
+      const items = Note.toItems(text)
+      if (items.length === 0) return
+      ctx.client
+        .rpc(Notepad)
+        .add({ items })
+        .then((value) => {
+          setState(value as State)
+          ctx.toast.show({ title: ctx.t("added.list", { count: items.length }), variant: "success", duration: 2000 })
+        }, fail)
+    }
+
+    function selectionToNotes(text: string) {
+      ctx.client
+        .rpc(Notepad)
+        .appendNote({ markdown: Note.quote(text) })
+        .then((value) => {
+          setState(value as State)
+          ctx.toast.show({ title: ctx.t("added.notes"), variant: "success", duration: 2000 })
+        }, fail)
     }
 
     function toggle() {
@@ -106,6 +136,40 @@ export default Plugin.define({
         run: toggle,
       }),
     )
+
+    // Highlight text anywhere in the window (outside inputs) to get a floating "Add to list / Add to notes" bar.
+    ctx.add(Slot, {
+      at: "window.bottom",
+      render: () => (
+        <SelectionBar
+          listLabel={ctx.t("selection.list")}
+          notesLabel={ctx.t("selection.notes")}
+          onList={selectionToList}
+          onNotes={selectionToNotes}
+        />
+      ),
+    })
+
+    for (const [id, bind, send] of [
+      ["selection-list", "mod+alt+l", selectionToList],
+      ["selection-notes", "mod+alt+k", selectionToNotes],
+    ] as const) {
+      ctx.add(
+        Command,
+        (): Command => ({
+          id,
+          title: ctx.t(id === "selection-list" ? "command.selectionList" : "command.selectionNotes"),
+          keywords: "notepad selection highlight quote",
+          bind,
+          run: () => {
+            const picked = readSelection()
+            if (!picked) return false
+            send(picked.text)
+            window.getSelection()?.removeAllRanges()
+          },
+        }),
+      )
+    }
 
     ctx.add(MenuItem, (): MenuItem => {
       const session = ctx.sessions.current()

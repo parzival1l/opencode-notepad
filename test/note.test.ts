@@ -74,3 +74,18 @@ test("findTasks matches substrings regardless of case", () => {
   expect(Note.findTasks(doc, "zzz")).toEqual([])
   expect(Note.findTasks(doc, "  ")).toEqual([])
 })
+
+describe("selection helpers", () => {
+  test("toItems turns each selected line into an item, dropping list markers and blanks", () => {
+    expect(Note.toItems("1. Fix the parser\n\n- Add tests\n• Ship it\n")).toEqual(["Fix the parser", "Add tests", "Ship it"])
+  })
+
+  test("quote prefixes every line and keeps paragraph breaks", () => {
+    expect(Note.quote("  first line\n\nsecond  \n")).toBe("> first line\n>\n> second")
+  })
+
+  test("appendBody adds a paragraph after the notes and keeps the checklist", () => {
+    expect(Note.appendBody("- [ ] a\n\nold\n", "> new")).toBe("- [ ] a\n\nold\n\n> new\n")
+    expect(Note.appendBody("- [ ] a\n", "first")).toBe("- [ ] a\n\nfirst\n")
+  })
+})

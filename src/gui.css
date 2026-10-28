@@ -109,3 +109,39 @@
   outline: none;
   border-color: color-mix(in srgb, currentColor 35%, transparent);
 }
+.notepad-selection {
+  position: fixed;
+  z-index: 2147483000;
+  transform: translateX(-50%);
+  display: flex;
+  align-items: center;
+  padding: 3px;
+  border-radius: 8px;
+  background: #1f1f1f;
+  color: #f4f4f4;
+  box-shadow: 0 6px 20px rgb(0 0 0 / 0.28), 0 0 0 1px rgb(255 255 255 / 0.08);
+  font-size: 12px;
+  animation: notepad-pop 120ms ease-out;
+}
+.notepad-selection button {
+  all: unset;
+  padding: 4px 9px;
+  border-radius: 5px;
+  cursor: pointer;
+  white-space: nowrap;
+}
+.notepad-selection button:hover,
+.notepad-selection button:focus-visible {
+  background: rgb(255 255 255 / 0.14);
+}
+.notepad-selection-divider {
+  width: 1px;
+  height: 14px;
+  background: rgb(255 255 255 / 0.18);
+}
+@keyframes notepad-pop {
+  from { opacity: 0; transform: translateX(-50%) translateY(4px); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .notepad-selection { animation: none; }
+}

@@ -37,7 +37,7 @@ export function compose(note: Note): string {
 // Turns free text into one task line: drops a leading list or task marker, joins lines.
 export function clean(item: string): string {
   return item
-    .replace(/^\s*[-*+]\s+(\[( |x|X)\]\s*)?/, "")
+    .replace(/^\s*(?:[-*+•]|\d+[.)])\s+(\[( |x|X)\]\s*)?/, "")
     .replace(/\s*\n\s*/g, " ")
     .trim()
 }
@@ -67,6 +67,26 @@ export function clearDone(doc: string): string {
 
 export function setBody(doc: string, body: string): string {
   return compose({ ...parse(doc), body })
+}
+
+export function appendBody(doc: string, markdown: string): string {
+  const note = parse(doc)
+  const added = markdown.trim()
+  if (!added) return compose(note)
+  return compose({ ...note, body: note.body ? `${note.body}\n\n${added}` : added })
+}
+
+// Selected text becomes one checklist item per non-blank line, so a selected list adds each entry.
+export function toItems(selection: string): string[] {
+  return selection.split(/\r?\n/).map(clean).filter(Boolean)
+}
+
+export function quote(text: string): string {
+  return text
+    .trim()
+    .split(/\r?\n/)
+    .map((line) => (line.trim() ? `> ${line.trimEnd()}` : ">"))
+    .join("\n")
 }
 
 // Indexes of tasks whose text contains the query, ignoring case.

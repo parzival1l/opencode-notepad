@@ -33,6 +33,10 @@ export default Plugin.define({
         return { doc: await store.update((doc) => Note.removeTask(doc, index)), path: store.path }
       },
       clearDone: async () => ({ doc: await store.update(Note.clearDone), path: store.path }),
+      appendNote: async (input) => {
+        const { markdown } = input as { markdown: string }
+        return { doc: await store.update((doc) => Note.appendBody(doc, markdown)), path: store.path }
+      },
       setBody: async (input) => {
         const { body } = input as { body: string }
         return { doc: await store.update((doc) => Note.setBody(doc, body)), path: store.path }
@@ -121,10 +125,7 @@ export default Plugin.define({
         options: { namespace: "notepad", codemode: true },
         async execute(input) {
           const { markdown } = input as { markdown: string }
-          await store.update((doc) => {
-            const body = Note.parse(doc).body
-            return Note.setBody(doc, body ? `${body}\n\n${markdown.trim()}` : markdown.trim())
-          })
+          await store.update((doc) => Note.appendBody(doc, markdown))
           return { content: "Appended to the Notepad notes." }
         },
       })

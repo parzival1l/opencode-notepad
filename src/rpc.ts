@@ -43,6 +43,15 @@ export const Notepad = Rpc.define({
       output: state,
     },
     clearDone: { input: empty, output: state },
+    appendNote: {
+      input: {
+        type: "object",
+        properties: { markdown: { type: "string" } },
+        required: ["markdown"],
+        additionalProperties: false,
+      },
+      output: state,
+    },
     setBody: {
       input: {
         type: "object",

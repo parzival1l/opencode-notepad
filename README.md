@@ -8,6 +8,15 @@ An OpenCode Desktop plugin that adds a Markdown notepad to the session side pane
 - **GUI** (`src/gui.tsx`, built to `dist/gui-experimental.cjs`) adds the **Notepad** side tab, a composer pill with the open-item count, and the **Toggle Notepad** command (`mod+alt+n`).
 - **RPC** (`src/rpc.ts`) is the contract between the two parts. The server emits `updated` on every change, including edits made in other apps.
 
+## Send a selection
+
+Highlight text anywhere in the window, such as part of a chat message. A floating bar appears above it:
+
+- **Add to list** adds each selected line as a checklist item. It drops list markers like `-`, `1.`, and `•`.
+- **Add to notes** appends the selection to the notes as a blockquote.
+
+The keyboard does the same: `mod+alt+l` sends the selection to the list, and `mod+alt+k` sends it to the notes. The bar stays hidden for selections inside inputs, the composer, and the Notepad itself. The GUI API has no hook into the timeline, so the bar reads the window's selection. Selected text arrives as plain text, without Markdown formatting.
+
 ## Note format
 
 The note is one plain Markdown file, `~/Documents/OpenCode/notepad.md` by default. The run of task lines at the very top is the checklist. Everything after the first non-task line is free Markdown.
