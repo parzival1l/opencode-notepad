@@ -44,22 +44,28 @@ All tools work on the calling chat's note.
 
 ## Install
 
-1. Run `bun install` and `bun run build`.
-2. Add the folder to `plugins` in the global `~/.config/opencode/opencode.jsonc`. OpenCode Desktop loads GUI parts only from the global config.
+Requires OpenCode Desktop 2.2.0 or later.
 
-```jsonc
-{
-  "plugins": [
-    "/Users/nandakumar/Personal/opencode-notepad",
-    // Or keep the notes in another folder:
-    // { "package": "/Users/nandakumar/Personal/opencode-notepad", "options": { "dir": "~/notes/opencode" } },
-  ],
-}
-```
+1. Add the package to `plugins` in the global `~/.config/opencode/opencode.jsonc`. OpenCode Desktop loads GUI parts only from the global config.
 
-3. Open a session, then pick **Notepad** from the side panel's **+** menu, or press `mod+alt+n`.
+   ```jsonc
+   {
+     "plugins": [
+       "opencode-notepad",
+       // Or keep the notes in another folder:
+       // { "package": "opencode-notepad", "options": { "dir": "~/notes/opencode" } },
+     ],
+   }
+   ```
+
+2. Open a session, then pick **Notepad** from the side panel's **+** menu, or press `mod+alt+n`.
+
+OpenCode installs the package and reloads plugins when the config changes.
 
 ## Develop
+
+1. Clone the repo, then run `bun install` and `bun run build`.
+2. In `plugins`, replace `"opencode-notepad"` with the absolute path of your clone.
 
 - `bun run dev` rebuilds the GUI on every change. Each rebuild reloads the GUI in every window.
 - The server reloads when a file in `src/` changes.
