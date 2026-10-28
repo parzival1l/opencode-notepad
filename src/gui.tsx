@@ -1,4 +1,5 @@
-import { createSignal, For, onCleanup, Show } from "solid-js"
+import { createEffect, createSignal, For, onCleanup, Show } from "solid-js"
+import { createStore } from "solid-js/store"
 import {
   Command,
   ComposerPill,
@@ -8,11 +9,12 @@ import {
   Plugin,
   Slot,
   Style,
+  type MountedSession,
   type PanelTab,
 } from "@opencode/plugin/gui"
 import * as Note from "./note"
 import { Notepad, type State } from "./rpc"
-import { readSelection, SelectionBar } from "./selection"
+import { readSelection, SelectionBar, type SelectionAction } from "./selection"
 import css from "./gui.css?inline"
 
 export default Plugin.define({
@@ -22,75 +24,133 @@ export default Plugin.define({
       "command.toggle": "Toggle Notepad",
       "add.label": "Add a checklist item",
       "add.placeholder": "Add an item and press Enter",
-      "remove": "Remove item",
-      "clearDone": "Clear done",
-      "notes": "Notes",
+      remove: "Remove item",
+      clearDone: "Clear done",
+      notes: "Notes",
       "notes.empty": "No notes yet. Select Edit to write Markdown.",
-      "edit": "Edit",
-      "done": "Done",
-      "openPreview": "Open in Markdown Preview",
-      "openFile": "Open file in default app",
-      "copyPath": "Copy file path",
-      "pill": "{{count}} open",
+      edit: "Edit",
+      done: "Done",
+      openPreview: "Open in Markdown Preview",
+      openFile: "Open file in default app",
+      copyPath: "Copy file path",
+      pill: "{{count}} open",
       "pill.title": "Notepad checklist",
       "pill.open": "Open Notepad",
-      "error": "Notepad: {{message}}",
+      error: "Notepad: {{message}}",
+      "selection.quote": "Quote",
       "selection.list": "Add to list",
       "selection.notes": "Add to notes",
       "command.selectionList": "Add selection to Notepad list",
       "command.selectionNotes": "Add selection to Notepad notes",
       "added.list": "Added {{count}} item(s) to the Notepad list",
       "added.notes": "Added the selection to Notepad notes",
+      "quote.source": "Conversation",
+      "quote.unavailable": "This chat can't take a quote right now",
+      "noChat": "Open a chat first",
     },
   },
   setup(ctx) {
     const ui = ctx.ui
     const key = `${ctx.id}:main`
-    const [state, setState] = createSignal<State>()
-    const note = () => Note.parse(state()?.doc ?? "")
 
-    // One run per server client: load the note, then follow every change the server reports.
+    // Notes by the session ID the window asked for. A subagent's entry holds its parent chat's note.
+    const [docs, setDocs] = createStore<Record<string, State>>({})
+    const loading = new Set<string>()
+
+    const noteOf = (sessionID: string | undefined) => Note.parse((sessionID && docs[sessionID]?.doc) || "")
+
+    function put(requested: string, state: State) {
+      setDocs(requested, state)
+    }
+
+    function load(sessionID: string) {
+      if (docs[sessionID] || loading.has(sessionID)) return
+      loading.add(sessionID)
+      ctx.client
+        .rpc(Notepad)
+        .read({ sessionID })
+        .then((value) => put(sessionID, value as State), fail)
+        .finally(() => loading.delete(sessionID))
+    }
+
+    // One run per server client: reload what this window shows, then follow every change the server reports.
     createKeyed(
       () => ctx.servers.get("sidecar")?.client,
       (client) => {
         const pad = client.rpc(Notepad)
-        void pad.read({}).then((value) => setState(value as State), fail)
+        for (const sessionID of Object.keys(docs)) {
+          void pad.read({ sessionID }).then((value) => put(sessionID, value as State), fail)
+        }
         onCleanup(
           pad.events.on("updated", (event) => {
-            setState(event.data as unknown as State)
+            const state = event.data as unknown as State
+            for (const [requested, current] of Object.entries(docs)) {
+              if (current.sessionID === state.sessionID) put(requested, state)
+            }
+            if (!docs[state.sessionID]) put(state.sessionID, state)
           }),
         )
       },
     )
 
     function fail(error: unknown) {
-      ctx.toast.show({ title: ctx.t("error", { message: error instanceof Error ? error.message : String(error) }) })
+      ctx.toast.show({
+        title: ctx.t("error", { message: error instanceof Error ? error.message : String(error) }),
+        variant: "error",
+      })
     }
 
-    function call(run: (pad: ReturnType<typeof ctx.client.rpc<typeof Notepad>>) => Promise<unknown>) {
-      run(ctx.client.rpc(Notepad)).then((value) => setState(value as State), fail)
+    type Pad = ReturnType<typeof ctx.client.rpc<typeof Notepad>>
+
+    function call(sessionID: string, run: (pad: Pad) => Promise<unknown>, done?: () => void) {
+      run(ctx.client.rpc(Notepad)).then((value) => {
+        put(sessionID, value as State)
+        done?.()
+      }, fail)
+    }
+
+    function currentChat(): MountedSession | undefined {
+      const session = ctx.sessions.current()
+      if (!session) ctx.toast.show({ title: ctx.t("noChat") })
+      return session
     }
 
     function selectionToList(text: string) {
+      const session = currentChat()
       const items = Note.toItems(text)
-      if (items.length === 0) return
-      ctx.client
-        .rpc(Notepad)
-        .add({ items })
-        .then((value) => {
-          setState(value as State)
-          ctx.toast.show({ title: ctx.t("added.list", { count: items.length }), variant: "success", duration: 2000 })
-        }, fail)
+      if (!session || items.length === 0) return
+      call(
+        session.id,
+        (pad) => pad.add({ sessionID: session.id, items }),
+        () => ctx.toast.show({ title: ctx.t("added.list", { count: items.length }), variant: "success", duration: 2000 }),
+      )
     }
 
     function selectionToNotes(text: string) {
-      ctx.client
-        .rpc(Notepad)
-        .appendNote({ markdown: Note.quote(text) })
-        .then((value) => {
-          setState(value as State)
-          ctx.toast.show({ title: ctx.t("added.notes"), variant: "success", duration: 2000 })
-        }, fail)
+      const session = currentChat()
+      if (!session) return
+      call(
+        session.id,
+        (pad) => pad.appendNote({ sessionID: session.id, markdown: Note.quote(text) }),
+        () => ctx.toast.show({ title: ctx.t("added.notes"), variant: "success", duration: 2000 }),
+      )
+    }
+
+    // Attaches the selection to the next prompt as a quote and opens its comment box: one step.
+    function selectionToQuote(text: string) {
+      const composer = ctx.screen.current()?.composer
+      if (!composer?.quotable()) {
+        ctx.toast.show({ title: ctx.t("quote.unavailable") })
+        return
+      }
+      const commentID = crypto.randomUUID()
+      composer.attach({
+        type: "quote",
+        commentID,
+        text: text.trim(),
+        source: { label: ctx.t("quote.source"), icon: "speech-bubble", subject: "this conversation" },
+      })
+      composer.focus(commentID)
     }
 
     function toggle() {
@@ -122,7 +182,7 @@ export default Plugin.define({
       },
       list: (input) => (input.open.includes("main") ? [tab] : []),
       enter: () => document.querySelector<HTMLInputElement>(".notepad-add input")?.focus(),
-      render: () => <NotepadView />,
+      render: (props) => <NotepadView session={props.session} />,
     })
 
     ctx.add(
@@ -137,18 +197,31 @@ export default Plugin.define({
       }),
     )
 
-    // Highlight text anywhere in the window (outside inputs) to get a floating "Add to list / Add to notes" bar.
-    ctx.add(Slot, {
-      at: "window.bottom",
-      render: () => (
-        <SelectionBar
-          listLabel={ctx.t("selection.list")}
-          notesLabel={ctx.t("selection.notes")}
-          onList={selectionToList}
-          onNotes={selectionToNotes}
-        />
-      ),
-    })
+    // Highlight text anywhere in the window (outside inputs) to get a floating bar: Quote, Add to list, Add to notes.
+    const actions: SelectionAction[] = [
+      {
+        id: "quote",
+        get label() {
+          return ctx.t("selection.quote")
+        },
+        run: selectionToQuote,
+      },
+      {
+        id: "list",
+        get label() {
+          return ctx.t("selection.list")
+        },
+        run: selectionToList,
+      },
+      {
+        id: "notes",
+        get label() {
+          return ctx.t("selection.notes")
+        },
+        run: selectionToNotes,
+      },
+    ]
+    ctx.add(Slot, { at: "window.bottom", render: () => <SelectionBar actions={actions} /> })
 
     for (const [id, bind, send] of [
       ["selection-list", "mod+alt+l", selectionToList],
@@ -164,8 +237,8 @@ export default Plugin.define({
           run: () => {
             const picked = readSelection()
             if (!picked) return false
-            send(picked.text)
             window.getSelection()?.removeAllRanges()
+            send(picked.text)
           },
         }),
       )
@@ -186,10 +259,16 @@ export default Plugin.define({
       }
     })
 
+    // Load the routed chat's note so its pill shows without opening the panel.
+    createKeyed(
+      () => ctx.sessions.current()?.id,
+      (sessionID) => load(sessionID),
+    )
+
     ctx.add(ComposerPill, {
       id: "open",
       show: (input) => {
-        const open = note().tasks.filter((task) => !task.checked)
+        const open = noteOf(input.session.id).tasks.filter((task) => !task.checked)
         if (open.length === 0) return undefined
         return {
           icon: "checklist",
@@ -208,16 +287,31 @@ export default Plugin.define({
       },
     })
 
-    function NotepadView() {
+    function NotepadView(props: { readonly session: MountedSession }) {
       const [draft, setDraft] = createSignal("")
       const [editing, setEditing] = createSignal(false)
       const [body, setBody] = createSignal("")
       let timer: ReturnType<typeof setTimeout> | undefined
 
+      const id = () => props.session.id
+      const note = () => noteOf(id())
+      const path = () => docs[id()]?.path ?? ""
+
+      createEffect(() => load(id()))
+
+      // Switching chats while editing saves the old chat's draft first.
+      createKeyed(id, (sessionID) => {
+        onCleanup(() => {
+          if (editing()) save(sessionID)
+          setEditing(false)
+        })
+      })
+
       function add(value: string) {
         if (!Note.clean(value)) return
         setDraft("")
-        call((pad) => pad.add({ items: [value] }))
+        const sessionID = id()
+        call(sessionID, (pad) => pad.add({ sessionID, items: [value] }))
       }
 
       function startEdit() {
@@ -225,27 +319,21 @@ export default Plugin.define({
         setEditing(true)
       }
 
-      function saveBody() {
+      function save(sessionID = id()) {
         clearTimeout(timer)
-        if (body() !== note().body) call((pad) => pad.setBody({ body: body() }))
+        if (body() !== noteOf(sessionID).body) call(sessionID, (pad) => pad.setBody({ sessionID, body: body() }))
       }
 
       function finishEdit() {
-        saveBody()
+        save()
         setEditing(false)
       }
-
-      onCleanup(() => {
-        if (editing()) saveBody()
-      })
-
-      const path = () => state()?.path ?? ""
 
       return (
         <div class="notepad">
           <div class="notepad-toolbar">
             <span class="notepad-path" title={path()}>
-              {path().split("/").pop()}
+              {ctx.t("title")}
             </span>
             <ui.Tooltip value={ctx.t("openPreview")}>
               <ui.IconButton
@@ -253,6 +341,7 @@ export default Plugin.define({
                 label={ctx.t("openPreview")}
                 variant="ghost"
                 size="small"
+                disabled={!path()}
                 onClick={() => ctx.system.openExternal(`md-preview://file${encodeURI(path())}`)}
               />
             </ui.Tooltip>
@@ -261,7 +350,11 @@ export default Plugin.define({
               icon="outline-dots"
               placement="bottom-end"
               items={[
-                { label: ctx.t("openFile"), icon: "open-file", onSelect: () => ctx.system.openExternal(`file://${encodeURI(path())}`) },
+                {
+                  label: ctx.t("openFile"),
+                  icon: "open-file",
+                  onSelect: () => ctx.system.openExternal(`file://${encodeURI(path())}`),
+                },
                 { label: ctx.t("copyPath"), icon: "copy", onSelect: () => void ctx.system.copy(path()) },
               ]}
             />
@@ -287,7 +380,8 @@ export default Plugin.define({
                       checked={task.checked}
                       onChange={(event) => {
                         const checked = event.currentTarget.checked
-                        call((pad) => pad.check({ index: i(), checked }))
+                        const sessionID = id()
+                        call(sessionID, (pad) => pad.check({ sessionID, index: i(), checked }))
                       }}
                     />
                     <span>{task.text}</span>
@@ -298,7 +392,10 @@ export default Plugin.define({
                     variant="ghost-muted"
                     size="small"
                     class="notepad-remove"
-                    onClick={() => call((pad) => pad.remove({ index: i() }))}
+                    onClick={() => {
+                      const sessionID = id()
+                      call(sessionID, (pad) => pad.remove({ sessionID, index: i() }))
+                    }}
                   />
                 </li>
               )}
@@ -306,7 +403,14 @@ export default Plugin.define({
           </ul>
           <Show when={note().tasks.some((task) => task.checked)}>
             <div class="notepad-clear">
-              <ui.Button variant="ghost-muted" size="small" onClick={() => call((pad) => pad.clearDone({}))}>
+              <ui.Button
+                variant="ghost-muted"
+                size="small"
+                onClick={() => {
+                  const sessionID = id()
+                  call(sessionID, (pad) => pad.clearDone({ sessionID }))
+                }}
+              >
                 {ctx.t("clearDone")}
               </ui.Button>
             </div>
@@ -314,7 +418,12 @@ export default Plugin.define({
 
           <div class="notepad-notes-header">
             <span>{ctx.t("notes")}</span>
-            <ui.Button variant="ghost" size="small" icon={editing() ? "check" : "pencil-line"} onClick={() => (editing() ? finishEdit() : startEdit())}>
+            <ui.Button
+              variant="ghost"
+              size="small"
+              icon={editing() ? "check" : "pencil-line"}
+              onClick={() => (editing() ? finishEdit() : startEdit())}
+            >
               {editing() ? ctx.t("done") : ctx.t("edit")}
             </ui.Button>
           </div>
@@ -336,9 +445,9 @@ export default Plugin.define({
               onInput={(event) => {
                 setBody(event.currentTarget.value)
                 clearTimeout(timer)
-                timer = setTimeout(saveBody, 600)
+                timer = setTimeout(save, 600)
               }}
-              onBlur={saveBody}
+              onBlur={() => save()}
               onKeyDown={(event) => {
                 if (event.key === "Escape" || (event.key === "Enter" && (event.metaKey || event.ctrlKey))) {
                   event.preventDefault()

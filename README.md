@@ -1,6 +1,6 @@
 # opencode-notepad
 
-An OpenCode Desktop plugin that adds a Markdown notepad to the session side panel. The note's top section is a checklist. The coding agent can add to it, so "add this to the list" in chat is enough.
+An OpenCode Desktop plugin that adds a Markdown notepad to the session side panel, one per chat. The note's top section is a checklist. The coding agent can add to it, so "add this to the list" in chat is enough.
 
 ## Parts
 
@@ -12,6 +12,7 @@ An OpenCode Desktop plugin that adds a Markdown notepad to the session side pane
 
 Highlight text anywhere in the window, such as part of a chat message. A floating bar appears above it:
 
+- **Quote** attaches the selection to your next message as a quote and opens its comment box, in one step.
 - **Add to list** adds each selected line as a checklist item. It drops list markers like `-`, `1.`, and `•`.
 - **Add to notes** appends the selection to the notes as a blockquote.
 
@@ -19,7 +20,7 @@ The keyboard does the same: `mod+alt+l` sends the selection to the list, and `mo
 
 ## Note format
 
-The note is one plain Markdown file, `~/Documents/OpenCode/notepad.md` by default. The run of task lines at the very top is the checklist. Everything after the first non-task line is free Markdown.
+Each chat has its own plain Markdown file, `~/.local/share/opencode-notepad/<session ID>.md` (under `$XDG_DATA_HOME` when set). A subagent writes to its parent chat's note. A chat gets a file on its first edit. Set `options.dir` to keep the files elsewhere. The run of task lines at the very top is the checklist. Everything after the first non-task line is free Markdown.
 
 ```markdown
 - [ ] Review the citation flow
@@ -31,6 +32,8 @@ Anything you like.
 ```
 
 ## Agent tools
+
+All tools work on the calling chat's note.
 
 | Tool | What it does |
 |------|--------------|
@@ -48,8 +51,8 @@ Anything you like.
 {
   "plugins": [
     "/Users/nandakumar/Personal/opencode-notepad",
-    // Or set another note file:
-    // { "package": "/Users/nandakumar/Personal/opencode-notepad", "options": { "path": "~/notes/todo.md" } },
+    // Or keep the notes in another folder:
+    // { "package": "/Users/nandakumar/Personal/opencode-notepad", "options": { "dir": "~/notes/opencode" } },
   ],
 }
 ```
@@ -68,5 +71,5 @@ The toolbar button opens the note in [Markdown Preview](https://github.com/pluk-
 
 ## Limits
 
-- The server runs one plugin instance per project directory. Each instance serializes its own writes. Two instances that write in the same few milliseconds can still lose one edit.
+- The server runs one plugin instance per project directory. Each instance serializes its own writes. Two instances that write to one chat's note in the same few milliseconds can still lose one edit.
 - The GUI API is experimental. This plugin pins `@opencode/plugin@2.2.0`, which matches OpenCode Desktop 2.2.0.

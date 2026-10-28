@@ -1,4 +1,4 @@
-import { createSignal, onCleanup, onMount, Show } from "solid-js"
+import { createSignal, For, onCleanup, onMount, Show } from "solid-js"
 import { Portal } from "solid-js/web"
 
 // Places a selection is editable or belongs to the notepad itself; the bar stays hidden there.
@@ -10,7 +10,13 @@ export interface Picked {
   readonly left: number
 }
 
-// The window's current text selection, when it is worth sending to the notepad.
+export interface SelectionAction {
+  readonly id: string
+  readonly label: string
+  run(text: string): void
+}
+
+// The window's current text selection, when it is worth acting on.
 export function readSelection(): Picked | undefined {
   const selection = window.getSelection()
   if (!selection || selection.isCollapsed || selection.rangeCount === 0) return undefined
@@ -24,12 +30,7 @@ export function readSelection(): Picked | undefined {
   return { text, top: rect.top, left: rect.left + rect.width / 2 }
 }
 
-export function SelectionBar(props: {
-  readonly listLabel: string
-  readonly notesLabel: string
-  readonly onList: (text: string) => void
-  readonly onNotes: (text: string) => void
-}) {
+export function SelectionBar(props: { readonly actions: readonly SelectionAction[] }) {
   const [picked, setPicked] = createSignal<Picked>()
   let timer: ReturnType<typeof setTimeout> | undefined
 
@@ -51,12 +52,12 @@ export function SelectionBar(props: {
     window.removeEventListener("resize", hide)
   })
 
-  function send(action: (text: string) => void) {
+  function send(action: SelectionAction) {
     const current = picked()
     if (!current) return
-    action(current.text)
     window.getSelection()?.removeAllRanges()
     hide()
+    action.run(current.text)
   }
 
   return (
@@ -65,21 +66,25 @@ export function SelectionBar(props: {
         <Portal>
           <div
             class="notepad-selection"
-            classList={{ "is-below": at().top < 48 }}
             style={{
               top: `${at().top < 48 ? at().top + 28 : at().top - 40}px`,
-              left: `${Math.min(Math.max(at().left, 110), window.innerWidth - 110)}px`,
+              left: `${Math.min(Math.max(at().left, 160), window.innerWidth - 160)}px`,
             }}
             // Keep the selection alive while the user clicks a button.
             onMouseDown={(event) => event.preventDefault()}
           >
-            <button type="button" onClick={() => send(props.onList)}>
-              {props.listLabel}
-            </button>
-            <span class="notepad-selection-divider" />
-            <button type="button" onClick={() => send(props.onNotes)}>
-              {props.notesLabel}
-            </button>
+            <For each={props.actions}>
+              {(action, i) => (
+                <>
+                  <Show when={i() > 0}>
+                    <span class="notepad-selection-divider" />
+                  </Show>
+                  <button type="button" onClick={() => send(action)}>
+                    {action.label}
+                  </button>
+                </>
+              )}
+            </For>
           </div>
         </Portal>
       )}

@@ -4,78 +4,99 @@ import { mkdir, readFile, rename, writeFile } from "node:fs/promises"
 import os from "node:os"
 import path from "node:path"
 
-export const DEFAULT_PATH = path.join(os.homedir(), "Documents", "OpenCode", "notepad.md")
+const home = os.homedir()
 
-export function resolvePath(option: unknown): string {
-  if (typeof option !== "string" || !option.trim()) return DEFAULT_PATH
+// One Markdown file per chat lives here, beside OpenCode's own data, not in a user folder.
+export const DEFAULT_DIR = path.join(process.env.XDG_DATA_HOME || path.join(home, ".local", "share"), "opencode-notepad")
+
+export function resolveDir(option: unknown): string {
+  if (typeof option !== "string" || !option.trim()) return DEFAULT_DIR
   const value = option.trim()
-  return path.resolve(value === "~" ? os.homedir() : value.replace(/^~(?=\/)/, os.homedir()))
+  return path.resolve(value === "~" ? home : value.replace(/^~(?=\/)/, home))
 }
 
-const STARTER = "- [ ] Try: ask the agent to \"add this to the list\"\n\n## Notes\n\nFree Markdown goes here.\n"
+const SAFE_ID = /^[A-Za-z0-9_-]+$/
 
-// Owns the note file. Mutations run one at a time, so a GUI click and an agent tool call never
-// overwrite each other. `changed` fires after every write, and after edits made by other apps.
-export function createStore(file: string, changed: (doc: string) => void) {
-  let last: string | undefined
-  let queue: Promise<unknown> = Promise.resolve()
+// `typeof` first: a missing ID would otherwise pass the pattern as the text "undefined".
+export function fileFor(dir: string, sessionID: string): string {
+  if (typeof sessionID !== "string" || !SAFE_ID.test(sessionID)) throw new Error(`Invalid session ID: ${sessionID}`)
+  return path.join(dir, `${sessionID}.md`)
+}
 
-  async function load(): Promise<string> {
+// Owns the notepad files of every chat. Edits to one file run one at a time, so a GUI click and an
+// agent tool call never overwrite each other. `changed` fires after every write, and after edits
+// made by other apps.
+export function createNotebook(dir: string, changed: (sessionID: string, doc: string) => void) {
+  const last = new Map<string, string>()
+  const queues = new Map<string, Promise<unknown>>()
+
+  async function load(sessionID: string): Promise<string> {
     try {
-      return await readFile(file, "utf8")
+      return await readFile(fileFor(dir, sessionID), "utf8")
     } catch (error) {
-      if ((error as NodeJS.ErrnoException).code !== "ENOENT") throw error
-      // The server runs one plugin instance per project, so another instance may create the file first.
-      await mkdir(path.dirname(file), { recursive: true })
-      await writeFile(file, STARTER, { encoding: "utf8", flag: "wx" }).catch((error: NodeJS.ErrnoException) => {
-        if (error.code !== "EEXIST") throw error
-      })
-      return await readFile(file, "utf8")
+      if ((error as NodeJS.ErrnoException).code === "ENOENT") return ""
+      throw error
     }
   }
 
-  async function save(doc: string) {
-    await mkdir(path.dirname(file), { recursive: true })
+  async function save(sessionID: string, doc: string) {
+    const file = fileFor(dir, sessionID)
+    await mkdir(dir, { recursive: true })
     const temp = `${file}.${randomUUID()}.tmp`
     await writeFile(temp, doc, "utf8")
     await rename(temp, file)
-    last = doc
+    last.set(sessionID, doc)
   }
 
-  function run<T>(task: () => Promise<T>): Promise<T> {
-    const next = queue.then(task, task)
-    queue = next.catch(() => undefined)
+  function run<T>(sessionID: string, task: () => Promise<T>): Promise<T> {
+    const next = (queues.get(sessionID) ?? Promise.resolve()).then(task, task)
+    queues.set(
+      sessionID,
+      next.catch(() => undefined),
+    )
     return next
   }
 
   return {
-    path: file,
-    read: () => run(async () => (last = await load())),
-    update: (edit: (doc: string) => string) =>
-      run(async () => {
-        const before = await load()
+    dir,
+    path: (sessionID: string) => fileFor(dir, sessionID),
+    read: (sessionID: string) =>
+      run(sessionID, async () => {
+        const doc = await load(sessionID)
+        last.set(sessionID, doc)
+        return doc
+      }),
+    update: (sessionID: string, edit: (doc: string) => string) =>
+      run(sessionID, async () => {
+        const before = await load(sessionID)
         const after = edit(before)
-        if (after !== before) await save(after)
-        changed(after)
+        if (after !== before) await save(sessionID, after)
+        changed(sessionID, after)
         return after
       }),
-    // Watches the folder, not the file: editors that save by rename replace the file's inode.
-    watch(): () => void {
-      let timer: ReturnType<typeof setTimeout> | undefined
-      const watcher = watch(path.dirname(file), (_event, name) => {
-        if (name && name.toString() !== path.basename(file)) return
-        clearTimeout(timer)
-        timer = setTimeout(() => {
-          void run(async () => {
-            const doc = await load()
-            if (doc === last) return
-            last = doc
-            changed(doc)
-          }).catch(() => undefined)
-        }, 150)
+    // Watches the folder, not each file: editors that save by rename replace the file's inode.
+    async watch(): Promise<() => void> {
+      await mkdir(dir, { recursive: true })
+      const timers = new Map<string, ReturnType<typeof setTimeout>>()
+      const watcher = watch(dir, (_event, name) => {
+        const match = name ? /^([A-Za-z0-9_-]+)\.md$/.exec(name.toString()) : null
+        if (!match) return
+        const sessionID = match[1]!
+        clearTimeout(timers.get(sessionID))
+        timers.set(
+          sessionID,
+          setTimeout(() => {
+            void run(sessionID, async () => {
+              const doc = await load(sessionID)
+              if (doc === last.get(sessionID)) return
+              last.set(sessionID, doc)
+              changed(sessionID, doc)
+            }).catch(() => undefined)
+          }, 150),
+        )
       })
       return () => {
-        clearTimeout(timer)
+        for (const timer of timers.values()) clearTimeout(timer)
         watcher.close()
       }
     },
