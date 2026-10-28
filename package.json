@@ -1,6 +1,6 @@
 {
   "name": "opencode-notepad",
-  "version": "0.0.2",
+  "version": "0.0.3",
   "description": "OpenCode Desktop side-panel notepad, one per chat: Markdown notes with a checklist the coding agent can add to.",
   "keywords": [
     "opencode",
