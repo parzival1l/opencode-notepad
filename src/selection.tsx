@@ -33,23 +33,34 @@ export function readSelection(): Picked | undefined {
 export function SelectionBar(props: { readonly actions: readonly SelectionAction[] }) {
   const [picked, setPicked] = createSignal<Picked>()
   let timer: ReturnType<typeof setTimeout> | undefined
+  let frame: number | undefined
 
   const refresh = () => {
     clearTimeout(timer)
     timer = setTimeout(() => setPicked(readSelection()), 120)
   }
+  // A streaming chat scrolls all the time. Follow the selection instead of hiding, so the bar never
+  // vanishes under the pointer.
+  const follow = () => {
+    if (!picked() || frame !== undefined) return
+    frame = requestAnimationFrame(() => {
+      frame = undefined
+      setPicked(readSelection())
+    })
+  }
   const hide = () => setPicked(undefined)
 
   onMount(() => {
     document.addEventListener("selectionchange", refresh)
-    window.addEventListener("scroll", hide, true)
-    window.addEventListener("resize", hide)
+    window.addEventListener("scroll", follow, true)
+    window.addEventListener("resize", follow)
   })
   onCleanup(() => {
     clearTimeout(timer)
+    if (frame !== undefined) cancelAnimationFrame(frame)
     document.removeEventListener("selectionchange", refresh)
-    window.removeEventListener("scroll", hide, true)
-    window.removeEventListener("resize", hide)
+    window.removeEventListener("scroll", follow, true)
+    window.removeEventListener("resize", follow)
   })
 
   function send(action: SelectionAction) {
@@ -79,7 +90,17 @@ export function SelectionBar(props: { readonly actions: readonly SelectionAction
                   <Show when={i() > 0}>
                     <span class="notepad-selection-divider" />
                   </Show>
-                  <button type="button" onClick={() => send(action)}>
+                  {/* Act on press, not release: a redraw between the two would drop the click. */}
+                  <button
+                    type="button"
+                    onMouseDown={(event) => {
+                      event.preventDefault()
+                      if (event.button === 0) send(action)
+                    }}
+                    onClick={(event) => {
+                      if (event.detail === 0) send(action)
+                    }}
+                  >
                     {action.label}
                   </button>
                 </>

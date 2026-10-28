@@ -1,2 +1,3 @@
 node_modules
 *.tmp
+e2e/harness/dist

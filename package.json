@@ -30,15 +30,17 @@
   "scripts": {
     "build": "vite build",
     "dev": "vite build --watch",
-    "test": "bun test",
+    "test": "bun test ./test",
     "typecheck": "tsc --noEmit",
-    "prepublishOnly": "bun run typecheck && bun test && bun run build"
+    "prepublishOnly": "bun run typecheck && bun run test && bun run test:e2e && bun run build",
+    "test:e2e": "vite build -c e2e/vite.config.ts && bun test ./e2e"
   },
   "dependencies": {
     "@opencode/plugin": "2.2.0"
   },
   "devDependencies": {
     "@types/bun": "^1.4.4",
+    "puppeteer-core": "^25.16.0",
     "solid-js": "^1.9.17",
     "typescript": "^7.0.2",
     "vite": "^8.3.5",

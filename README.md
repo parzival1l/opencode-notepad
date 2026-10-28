@@ -69,7 +69,8 @@ OpenCode installs the package and reloads plugins when the config changes.
 
 - `bun run dev` rebuilds the GUI on every change. Each rebuild reloads the GUI in every window.
 - The server reloads when a file in `src/` changes.
-- `bun test` covers the note format and the file store. `bun run typecheck` runs `tsc`.
+- `bun run test` covers the note format and the file store. `bun run typecheck` runs `tsc`.
+- `bun run test:e2e` drives the highlight bar in Chrome with real mouse presses, including while the page streams and scrolls. Set `CHROME_PATH` if Chrome is not in `/Applications`.
 
 ## Markdown Preview
 

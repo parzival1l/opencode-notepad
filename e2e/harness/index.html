@@ -1,0 +1,19 @@
+<!doctype html>
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <title>notepad selection harness</title>
+    <style>
+      body { font: 15px/1.5 system-ui, sans-serif; margin: 0; padding: 120px 40px 40px; }
+      #target { max-width: 600px; }
+      /* Stands in for a tool-output box that scrolls while the agent streams. */
+      #stream { height: 80px; overflow: auto; border: 1px solid #ccc; margin-top: 24px; font: 12px monospace; }
+    </style>
+  </head>
+  <body>
+    <p id="target">Short first hop. Your phone connects to the nearest Cloudflare city.</p>
+    <div id="stream"></div>
+    <div id="app"></div>
+    <script type="module" src="./main.tsx"></script>
+  </body>
+</html>
